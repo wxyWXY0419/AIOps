@@ -1,4 +1,4 @@
 SOURCE:   "AI"
-MODEL:    "qwen3-235b-a22b"
-API_KEY:  "sk-2079c2632bddb79f3dd0b0eb6b294ec4c4497b6a9cd3a1291af316ec060ffb8b"
+MODEL:    "qwen3:235b"
+API_KEY:  "2079c2632bddb79f3dd0b0eb6b294ec4c4497b6a9cd3a1291af316ec060ffb8b"
 API_BASE: "https://uni-api.cstcloud.cn/v1"
