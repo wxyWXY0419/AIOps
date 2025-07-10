@@ -8,7 +8,7 @@
             "uuid: {uuid}",
             "component: {component}",
             "reason: {reason}",
-            "root cause occurrence time: {datetime}",
+            "root cause occurrence time: {datetime}", 
             "reasoning_trace: {reasoning_trace}"
         ],
         "scoring_points": [
