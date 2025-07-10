@@ -1,0 +1,18 @@
+{
+    "task_1": {
+        "input": [
+            "Anomaly Description: {anomaly_description}",
+            "uuid: {uuid}"
+        ],
+        "output": [
+            "uuid: {uuid}",
+            "component: {component}",
+            "reason: {reason}",
+            "root cause occurrence time: {datetime}",
+            "reasoning_trace: {reasoning_trace}"
+        ],
+        "scoring_points": [
+            "The {idx} root cause occurrence time is within 1 minutes (i.e., <=1min) of {datetime}"
+        ]
+    }
+}    
