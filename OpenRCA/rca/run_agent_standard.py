@@ -26,8 +26,10 @@ def main(args, uid, dataset):
         import rca.baseline.rca_agent.prompt.basic_prompt_Bank as bp
     elif dataset == "Market/cloudbed-1" or dataset == "Market/cloudbed-2":
         import rca.baseline.rca_agent.prompt.basic_prompt_Market as bp
+    elif dataset == "phaseone":
+        import rca.baseline.rca_agent.prompt.basic_prompt_PhaseOne as bp
 
-    inst_file = f"dataset/{dataset}/query.csv"
+    inst_file = f"dataset/{dataset}/input.json"
     gt_file = f"dataset/{dataset}/record.csv"
     eval_file = f"test/result/{dataset}/agent-{args.tag}-{configs['MODEL'].split('/')[-1]}.csv"
     obs_path = f"test/monitor/{dataset}/agent-{args.tag}-{configs['MODEL'].split('/')[-1]}"
@@ -81,12 +83,12 @@ def main(args, uid, dataset):
         task_id = int(task_index.split('_')[1])
         best_score = 0
 
-        if task_id <= 3:
-            catalog = "easy"
-        elif task_id <= 6:
-            catalog = "middle"
-        elif task_id <= 7:
-            catalog = "hard"
+        # if task_id <= 3:
+        #     catalog = "easy"
+        # elif task_id <= 6:
+        #     catalog = "middle"
+        # elif task_id <= 7:
+        #     catalog = "hard"
 
         for i in range(args.sample_num):
             uuid = uid + f"_#{idx}-{i}"
