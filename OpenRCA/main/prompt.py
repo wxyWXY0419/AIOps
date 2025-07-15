@@ -13,46 +13,50 @@ The specifications provided to you include the following components:
 Your response should follow the JSON format below:
 
 {
-    "issue": (Your generated issue based on the specifications.)
+    "uuid": (The uuid provided in the known information.),
+    "reason":( Your generated reason for the anomaly based on the specifications.),
+    "component": (The component that caused the anomaly based on the specifications.),
+    "reasoning_trace": (Your thought process in determining the root cause of the anomaly.)
 }
 (DO NOT contain "```json" and "```" tags. DO contain the JSON object with the brackets "{}" only.)
 
 For example, if the following specifications are given:
  
 ```known
-- number of failures: 1
-- time range: 2022-03-21 11:30:00 to 2022-03-21 12:00:00
+- Anomaly Description: The system experienced an anomaly from 2025-06-01T16:10:02Z to 2025-06-01T16:31:02Z. Please infer the possible cause.
+- uuid: 345fbe93-80
 - system: None
 ```
 
 ```query
-- root cause occurrence time: **UNKNOWN**
+- reason: **UNKNOWN**
+- component: **UNKNOWN**
+- reasoning_trace: **UNKNOWN**
 ```
 
-Then, you could generate a issue be like:
+Then, the generated issue be like:
 
 {
-    "issue": "During the specified time range of March 21, 2022, from 11:30 to 12:00, the cloud service system experience a failure. The exact time of the root cause occurrence is unknown, which complicates the diagnosis process. Please pinpoint the root cause occurrence datetime."
-}
-
-There is another example: 
-
-```known
-- number of failures: 2
-- time range: 2022-03-20 09:30:00 to 2022-03-20 10:00:00
-- system: cloudbed-1
-```
-
-```query
-- root cause occurrence time: **UNKNOWN**
-- root cause component: **UNKNOWN**
-- root cause reason: **UNKNOWN**
-```
-
-The generated issue be like:
-
-{
-    "issue": "The cloud service system, cloudbed-1, may have experienced two failures within the time range of March 20, 2022, from 09:30 to 10:00. The exact number of failures, the time of occurrence, the affected components, and the underlying reasons for these failures are currently unknown. You are tasked with identifying the root cause occurrence datetime, the root cause component, and the root cause reason."
+    "uuid": "345fbe93-80",
+    "reason": "disk IO overload",
+    "component": "checkoutservice",
+    "reasoning_trace": [
+        {
+            "step": 1,
+            "action": "LoadMetrics(checkoutservice)",
+            "observation": "disk_read_latency spike"
+        },
+        {
+            "step": 2,
+            "action": "TraceAnalysis('frontend -> checkoutservice')",
+            "observation": "checkoutservice self-loop spans"
+        },
+        {
+            "step": 3,
+            "action": "LogSearch(checkoutservice)",
+            "observation": "IOError in 3 logs"
+        }
+    ]
 }
 
 Some rules to follow:
@@ -63,7 +67,7 @@ Some rules to follow:
 
 Now, let's get started!"""
 
-user = """Please generate a issue related to DevOps failure diagnosis based on the following specifications:
+user = """Please determine the root cause of the given anomaly based on the following specifications:
 
 ```known
 {input_specification}
