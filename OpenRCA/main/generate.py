@@ -155,7 +155,7 @@ def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
                     temperature=1.0
                 )
                 instruction = instruction
-                instruction = json.loads(instruction)['issue']
+                instruction = json.loads(instruction)['uuid','reason','component','reasoning_trace']
                 break
             # except Exception as e:
             #     print(e)
