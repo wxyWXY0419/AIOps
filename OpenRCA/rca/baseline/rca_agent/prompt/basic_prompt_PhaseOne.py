@@ -11,20 +11,14 @@ cand = """## POSSIBLE ROOT CAUSE REASONS:
 
 ## POSSIBLE ROOT CAUSE COMPONENTS:
 
-- apache01
-- apache02
-- Tomcat01
-- Tomcat02
-- Tomcat04
-- Tomcat03
-- MG01
-- MG02
-- IG01
-- IG02
-- Mysql01
-- Mysql02
-- Redis01
-- Redis02"""
+- aiops-k8s-04
+- aiops-k8s-05
+- aiops-k8s-06
+- aiops-k8s-07
+- aiops-k8s-08
+- aiops-k8s-01
+- aiops-k8s-02
+- aiops-k8s-03"""
 
 schema = f"""## TELEMETRY DIRECTORY STRUCTURE:
 

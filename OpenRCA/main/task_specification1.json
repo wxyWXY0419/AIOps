@@ -1,14 +1,12 @@
 {
-    "task_1": {
-        "input": [
-            "Anomaly Description: {anomaly_description}",
-            "uuid: {uuid}"
-        ],
-        "output": [
-            "uuid: {uuid}",
-            "reason: {reason}",
-            "component: {component}",
-            "reasoning_trace: {reasoning_trace}"
-        ]
-    }
+    "input": [
+        "Anomaly Description: {anomaly_description}",
+        "uuid: {uuid}"
+    ],
+    "output": [
+        "uuid: {uuid}",
+        "reason: {reason}",
+        "component: {component}",
+        "reasoning_trace: {reasoning_trace}"
+    ]
 }    

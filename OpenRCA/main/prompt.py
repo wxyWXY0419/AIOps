@@ -29,6 +29,7 @@ For example, if the following specifications are given:
 ```
 
 ```query
+- uuid: 345fbe93-80
 - reason: **UNKNOWN**
 - component: **UNKNOWN**
 - reasoning_trace: **UNKNOWN**

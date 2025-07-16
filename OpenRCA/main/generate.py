@@ -12,7 +12,8 @@ from main.prompt import system, user
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 sys.path.insert(0, parent_dir)
 
-from scripts.utils import get_chat_completion
+# from scripts.utils import get_chat_completion
+from rca.api_router import get_chat_completion
 
 random.seed(42)
 
@@ -63,6 +64,11 @@ random.seed(42)
 def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
 
     # meta_data = pd.read_csv(gt_path)
+    if not os.path.exists(gt_path):
+        raise FileNotFoundError(f"Ground truth文件不存在: {gt_path}")
+    if not os.path.exists(spec_path):
+        raise FileNotFoundError(f"specification文件不存在: {spec_path}")
+    
     with open(gt_path, "r", encoding="utf-8") as f:
         data = json.load(f)
     meta_data = pd.DataFrame(data)
@@ -78,7 +84,7 @@ def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
     # one_hour_conflict_failure_flag = get_one_hour_conflict_failure_flag(meta_data)
 
     # full_task_ID_list = list(task_templates.keys())
-    df = pd.DataFrame(columns=["uuid", "Anomaly Description"])
+    df = pd.DataFrame(columns=["uuid", "reason", "component", "reasoning_trace"])
 
     for idx, row in meta_data.iterrows():
         print(f"processing: {idx}")
@@ -117,10 +123,10 @@ def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
 
         #构造输入输出规范
         input_specification = "```known\n"
-        for spec in task_templates["1"]['input']:
+        for spec in task_templates['input']:
             input_specification += f"- "
             input_specification += spec.format(
-                description=description,
+                anomaly_description=description,
                 uuid=uuid
             )
             input_specification += "\n"
@@ -129,10 +135,10 @@ def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
         input_specification = input_specification.strip() + "\n```"
 
         output_specification = "```query\n"
-        for spec in task_templates["1"]['output']:
+        for spec in task_templates['output']:
             output_specification += f"- "
             output_specification += spec.format(
-                uuid="**UNKNOWN**",
+                uuid=uuid,
                 reason="**UNKNOWN**",
                 component="**UNKNOWN**",
                 reasoning_trace="**UNKNOWN**",
@@ -154,15 +160,20 @@ def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
                     messages=prompt,
                     temperature=1.0
                 )
-                instruction = instruction
-                instruction = json.loads(instruction)['uuid','reason','component','reasoning_trace']
+                #似乎是冗余语句
+                # instruction = instruction
+                parsed_instruction = json.loads(instruction)
                 break
             # except Exception as e:
             #     print(e)
             #     continue
         
-        new_df = pd.DataFrame([{"uuid": uuid,
-                                "instruction": instruction}])
+        new_df = pd.DataFrame([{
+            "uuid": parsed_instruction['uuid'],
+            "reason": parsed_instruction['reason'],
+            "component": parsed_instruction['component'],
+            "reasoning_trace": parsed_instruction['reasoning_trace']
+        }])
         df = pd.concat([df, new_df], 
                        ignore_index=True)
         

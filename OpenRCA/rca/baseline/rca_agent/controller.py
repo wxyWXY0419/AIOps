@@ -6,7 +6,7 @@ from rca.baseline.rca_agent.executor import execute_act
 
 from rca.api_router import get_chat_completion
 
-system = """You are the Administrator of a DevOps Assistant system for failure diagnosis. To solve each given issue, you should iteratively instruct an Executor to write and execute Python code for data analysis on telemetry files of target system. By analyzing the execution results, you should approximate the answer step-by-step.
+system = """You are the Administrator of a AIOps Assistant system for failure diagnosis. To solve each given issue, you should iteratively instruct an Executor to write and execute Python code for data analysis on telemetry files of target system. By analyzing the execution results, you should approximate the answer step-by-step.
 
 There is some domain knowledge for you:
 
@@ -25,12 +25,28 @@ Solve the issue step-by-step. In each step, your response should follow the JSON
 Let's begin."""
 
 format = """{
-    "analysis": (Your analysis of the code execution result from Executor in the last step, with detailed reasoning of 'what have been done' and 'what can be derived'. Respond 'None' if it is the first step.),
-    "completed": ("True" if you believe the issue is resolved, and an answer can be derived in the 'instruction' field. Otherwise "False"),
-    "instruction": (Your instruction for the Executor to perform via code execution in the next step. Do not involve complex multi-step instruction. Keep your instruction atomic, with clear request of 'what to do' and 'how to do'. Respond a summary by yourself if you believe the issue is resolved. Respond a summary by yourself if you believe the issue is resolved. Respond a summary by yourself if you believe the issue is resolved.)
+    "step": (start from 1, increment by 1 in each step, eg., 1, 2, 3),
+    "instruction": (Your instruction for the Executor to perform via code execution in the next step. Do not involve complex multi-step instruction. Keep your instruction atomic, with clear request of 'what to do' and 'how to do'. Respond a summary by yourself if you believe the issue is resolved. e.g., "LoadMetrics(checkoutservice)"),
+    "observation": (the observation of the action, e.g., "disk_read_latency spike")
 }
 (DO NOT contain "```json" and "```" tags. DO contain the JSON object with the brackets "{}" only. Use '\\n' instead of an actual newline character to ensure JSON compatibility when you want to insert a line break within a string.)"""
 
+Here is an example of the JSON format:
+example = """{
+    "step": 1,
+    "instruction": "LoadMetrics(checkoutservice)",
+    "observation": "disk_read_latency spike"
+}.
+{
+    "step": 2,
+    "instruction": "TraceAnalysis('frontend -> checkoutservice')",
+    "observation": "checkoutservice self-loop spans"
+},
+{
+    "step": 3,
+    "instruction": "LogSearch(checkoutservice)",
+    "observation": "IOError in 3 logs"
+}"""
 summary = """Now, you have decided to finish your reasoning process. You should now provide the final answer to the issue. The candidates of possible root cause components and reasons are provided to you. The root cause components and reasons must be selected from the provided candidates.
 
 {cand}
@@ -41,17 +57,12 @@ Please first review your previous reasoning process to infer an exact answer of 
 
 ```json
 {{
-    "1": {{
-        "root cause occurrence datetime": (if asked by the issue, format: '%Y-%m-%d %H:%M:%S', otherwise ommited),
-        "root cause component": (if asked by the issue, one selected from the possible root cause component list, otherwise ommited),
-        "root cause reason": (if asked by the issue, one selected from the possible root cause reason list, otherwise ommited),
-    }}, (mandatory)
-    "2": {{
-        "root cause occurrence datetime": (if asked by the issue, format: '%Y-%m-%d %H:%M:%S', otherwise ommited),
-        "root cause component": (if asked by the issue, one selected from the possible root cause component list, otherwise ommited),
-        "root cause reason": (if asked by the issue, one selected from the possible root cause reason list, otherwise ommited),
-    }}, (only if the failure number is "unknown" or "more than one" in the issue)
-    ... (only if the failure number is "unknown" or "more than one" in the issue)
+    {{
+        "uuid" :("The uuid provided in the known information."),
+        "reason": (The final reason of the anomaly, e.g.,"disk IO overload"),
+        "component": (The component that cause the anomaly, e.g.,"checkoutservice"),
+        "reasoning_trace": (the copy of your previous reasoning process, but rename the field "instruction" to "action" in each step, e.g., [{"step": 1, "action": "LoadMetrics(checkoutservice)", "observation": "disk_read_latency spike"}, {"step": 2, "action": "TraceAnalysis('checkoutservice')", "observation": "high latency in database operations"}]),
+    }}
 }}
 ```
 (Please use "```json" and "```" tags to wrap the JSON object. You only need to provide the elements asked by the issue, and ommited the other fields in the JSON.)
@@ -79,7 +90,7 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
 
     for step in range(max_step):
         
-        note = [{'role': 'user', 'content': f"Continue your reasoning process for the target issue:\n\n{objective}\n\nFollow the rules during issue solving:\n\n{ap.rules}.\n\nResponse format:\n\n{format}"}]
+        note = [{'role': 'user', 'content': f"Continue your reasoning process for the anomaly:\n\n{objective}\n\nFollow the rules during issue solving:\n\n{ap.rules}.\n\nResponse format:\n\n{format}"}]
         attempt_actor = []
         try:
             response_raw = get_chat_completion(
@@ -88,16 +99,16 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
             if "```json" in response_raw:
                 response_raw = re.search(r"```json\n(.*)\n```", response_raw, re.S).group(1).strip()
             logger.debug(f"Raw Response:\n{response_raw}")
-            if '"analysis":' not in response_raw or '"instruction":' not in response_raw or '"completed":' not in response_raw:
+            if '"step":' not in response_raw or '"instruction":' not in response_raw or '"observation":' not in response_raw:
                 logger.warning("Invalid response format. Please provide a valid JSON response.")
                 prompt.append({'role': 'assistant', 'content': response_raw})
                 prompt.append({'role': 'user', 'content': "Please provide your analysis in requested JSON format."})
                 continue
             response = json.loads(response_raw)
-            analysis = response['analysis']
+            step = response['step']
             instruction = response['instruction']
-            completed = response['completed']
-            logger.info('-'*80 + '\n' + f"### Step[{step+1}]\nAnalysis: {analysis}\nInstruction: {instruction}" + '\n' + '-'*80)
+            observation = response['observation']
+            logger.info('-'*80 + '\n' + f"### Step[{step+1}]\naction: {action}\nobservation: {observation}" + '\n' + '-'*80)
 
             if completed == "True":
                 kernel.reset()

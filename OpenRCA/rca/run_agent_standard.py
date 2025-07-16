@@ -16,7 +16,7 @@ import signal
 def handler(signum, frame):
     raise TimeoutError("Loop execution exceeded the time limit")
 
-def main(args, uid, dataset):
+def main(args, dataset):
 
     from rca.baseline.rca_agent.rca_agent import RCA_Agent
     import rca.baseline.rca_agent.prompt.agent_prompt as ap
@@ -29,42 +29,47 @@ def main(args, uid, dataset):
     elif dataset == "phaseone":
         import rca.baseline.rca_agent.prompt.basic_prompt_PhaseOne as bp
 
-    inst_file = f"dataset/{dataset}/input.json"
-    gt_file = f"dataset/{dataset}/record.csv"
+    inst_file = f"dataset/{dataset}/query.csv"
+    gt_file = f"dataset/{dataset}/input.json"
     eval_file = f"test/result/{dataset}/agent-{args.tag}-{configs['MODEL'].split('/')[-1]}.csv"
     obs_path = f"test/monitor/{dataset}/agent-{args.tag}-{configs['MODEL'].split('/')[-1]}"
-    unique_obs_path = f"{obs_path}/{uid}"
+    # unique_obs_path = f"{obs_path}/{uuid}"
 
     instruct_data = pd.read_csv(inst_file)
-    gt_data = pd.read_csv(gt_file)
+    
+    # gt_data = pd.read_csv(gt_file)
+    with open(gt_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    gt_data = pd.DataFrame(data)
+
     if not os.path.exists(inst_file) or not os.path.exists(gt_file):
         raise FileNotFoundError(f"Please download the dataset first.")
 
-    if not os.path.exists(f"{unique_obs_path}/history"):
-        os.makedirs(f"{unique_obs_path}/history")
-    if not os.path.exists(f"{unique_obs_path}/trajectory"):
-        os.makedirs(f"{unique_obs_path}/trajectory")
-    if not os.path.exists(f"{unique_obs_path}/prompt"):
-        os.makedirs(f"{unique_obs_path}/prompt")
-    if not os.path.exists(eval_file):
-        if not os.path.exists(f"test/result/{dataset}"):
-            os.makedirs(f"test/result/{dataset}")
-        eval_df = pd.DataFrame(columns=["instruction", "prediction", "groundtruth", "passed", "failed", "score"])
-    else:
-        eval_df = pd.read_csv(eval_file)
+    # if not os.path.exists(f"{unique_obs_path}/history"):
+    #     os.makedirs(f"{unique_obs_path}/history")
+    # if not os.path.exists(f"{unique_obs_path}/trajectory"):
+    #     os.makedirs(f"{unique_obs_path}/trajectory")
+    # if not os.path.exists(f"{unique_obs_path}/prompt"):
+    #     os.makedirs(f"{unique_obs_path}/prompt")
+    # if not os.path.exists(eval_file):
+    #     if not os.path.exists(f"test/result/{dataset}"):
+    #         os.makedirs(f"test/result/{dataset}")
+    #     eval_df = pd.DataFrame(columns=["uuid", "reason", "component", "reasoning_trace"])
+    # else:
+    #     eval_df = pd.read_csv(eval_file)
 
-    scores = {
-        "total": 0,
-        "easy": 0,
-        "middle": 0,
-        "hard": 0,
-    }
-    nums = {
-        "total": 0,
-        "easy": 0,
-        "middle": 0,
-        "hard": 0,
-    }
+    # scores = {
+    #     "total": 0,
+    #     "easy": 0,
+    #     "middle": 0,
+    #     "hard": 0,
+    # }
+    # nums = {
+    #     "total": 0,
+    #     "easy": 0,
+    #     "middle": 0,
+    #     "hard": 0,
+    # }
 
     signal.signal(signal.SIGALRM, handler)
     logger.info(f"Using dataset: {dataset}")
@@ -77,11 +82,27 @@ def main(args, uid, dataset):
         if idx > args.end_idx:
             break
         
-        instruction = row["instruction"]
-        task_index = row["task_index"]
-        scoring_points = row["scoring_points"]
-        task_id = int(task_index.split('_')[1])
-        best_score = 0
+        uuid = row['uuid']
+        reason = row["reason"]
+        component = row["component"]
+        reasoning_trace = row["reasoning_trace"]
+
+        unique_obs_path = f"{obs_path}/{uuid}"
+
+        if not os.path.exists(f"{unique_obs_path}/history"):
+            os.makedirs(f"{unique_obs_path}/history")
+        if not os.path.exists(f"{unique_obs_path}/trajectory"):
+            os.makedirs(f"{unique_obs_path}/trajectory")
+        if not os.path.exists(f"{unique_obs_path}/prompt"):
+            os.makedirs(f"{unique_obs_path}/prompt")
+        if not os.path.exists(eval_file):
+            if not os.path.exists(f"test/result/{dataset}"):
+                os.makedirs(f"test/result/{dataset}")
+            eval_df = pd.DataFrame(columns=["uuid", "reason", "component", "reasoning_trace"])
+        else:
+            eval_df = pd.read_csv(eval_file)
+
+        # task_id = int(task_index.split('_')[1])
 
         # if task_id <= 3:
         #     catalog = "easy"
@@ -91,7 +112,8 @@ def main(args, uid, dataset):
         #     catalog = "hard"
 
         for i in range(args.sample_num):
-            uuid = uid + f"_#{idx}-{i}"
+            # uuid = uid + f"_#{idx}-{i}"
+
             nb = nbf.new_notebook()
             nbfile = f"{unique_obs_path}/trajectory/{uuid}.ipynb"
             promptfile = f"{unique_obs_path}/prompt/{uuid}.json"
@@ -99,13 +121,12 @@ def main(args, uid, dataset):
             logger.remove()
             logger.add(sys.stdout, colorize=True, enqueue=True, level="INFO")
             logger.add(logfile, colorize=True, enqueue=True, level="INFO")
-            logger.debug('\n' + "#"*80 + f"\n{uuid}: {task_index}\n" + "#"*80)
+            logger.debug('\n' + "#"*80 + f"\n{uuid}: {uuid}\n" + "#"*80)
             try: 
                 signal.alarm(args.timeout)
 
                 agent = RCA_Agent(ap, bp)
-                prediction, trajectory, prompt = agent.run(instruction, 
-                                                       logger, 
+                prediction, trajectory, prompt = agent.run(instruction, logger, 
                                                        max_step=args.controller_max_step, 
                                                        max_turn=args.controller_max_turn)
                 
@@ -124,52 +145,54 @@ def main(args, uid, dataset):
                     json.dump({"messages": prompt}, f, ensure_ascii=False, indent=4)
                 logger.info(f"Prompt has been saved to {promptfile}")
 
-                new_eval_df = pd.DataFrame([{"row_id": idx,
-                                            "task_index": task_index,
-                                            "instruction": instruction, 
+                new_eval_df = pd.DataFrame([{"uuid": uuid,
+                                            "reason": reason,
+                                            "component": component, 
                                             "prediction": prediction,
                                             "groundtruth": '\n'.join([f'{col}: {gt_data.iloc[idx][col]}' for col in gt_data.columns if col != 'description']),
-                                            "passed": "N/A",
-                                            "failed": "N/A", 
-                                            "score": "N/A"}])
+                                            # "passed": "N/A",
+                                            # "failed": "N/A", 
+                                            # "score": "N/A"
+                                        }])
                 eval_df = pd.concat([eval_df, new_eval_df], 
                                     ignore_index=True)
                 eval_df.to_csv(eval_file, 
                                index=False)
 
-                passed_criteria, failed_criteria, score = evaluate(prediction, scoring_points)
+                # passed_criteria, failed_criteria, score = evaluate(prediction, scoring_points)
                 
                 logger.info(f"Prediction: {prediction}")
-                logger.info(f"Scoring Points: {scoring_points}")
-                logger.info(f"Passed Criteria: {passed_criteria}")
-                logger.info(f"Failed Criteria: {failed_criteria}")
-                logger.info(f"Score: {score}")
-                best_score = max(best_score, score)
+                # logger.info(f"Scoring Points: {scoring_points}")
+                # logger.info(f"Passed Criteria: {passed_criteria}")
+                # logger.info(f"Failed Criteria: {failed_criteria}")
+                # logger.info(f"Score: {score}")
+                # best_score = max(best_score, score)
 
-                eval_df.loc[eval_df.index[-1], "passed"] = '\n'.join(passed_criteria)
-                eval_df.loc[eval_df.index[-1], "failed"] = '\n'.join(failed_criteria)
-                eval_df.loc[eval_df.index[-1], "score"] = score
+                # eval_df.loc[eval_df.index[-1], "passed"] = '\n'.join(passed_criteria)
+                # eval_df.loc[eval_df.index[-1], "failed"] = '\n'.join(failed_criteria)
+                # eval_df.loc[eval_df.index[-1], "score"] = score
                 eval_df.to_csv(eval_file, 
                                index=False)
                 
-                temp_scores = scores.copy()
-                temp_scores[catalog] += best_score
-                temp_scores["total"] += best_score
-                temp_nums = nums.copy()
-                temp_nums[catalog] += 1
-                temp_nums["total"] += 1
+                # temp_scores = scores.copy()
+                # temp_scores[catalog] += best_score
+                # temp_scores["total"] += best_score
+                # temp_nums = nums.copy()
+                # temp_nums[catalog] += 1
+                # temp_nums["total"] += 1
 
             except TimeoutError:
                 logger.error(f"Loop {i} exceeded the time limit and was skipped")
                 continue
       
-        scores = temp_scores
-        nums = temp_nums
+        # scores = temp_scores
+        # nums = temp_nums
 
 
 if __name__ == "__main__":
     
-    uid = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    # uid = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="Market/cloudbed-1")
     parser.add_argument("--sample_num", type=int, default=1)
@@ -185,9 +208,9 @@ if __name__ == "__main__":
 
     if args.auto:
         print(f"Auto mode is on. Model is fixed to {configs['MODEL']}")
-        datasets = ["Market/cloudbed-1", "Market/cloudbed-2", "Bank", "Telecom"]
+        datasets = ["Market/cloudbed-1", "Market/cloudbed-2", "Bank", "Telecom", "phaseone"]
         for dataset in datasets:
-            main(args, uid, dataset)
+            main(args, dataset)
     else:
         dataset = args.dataset
-        main(args, uid, dataset)
+        main(args, dataset)
