@@ -84,7 +84,8 @@ def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
     # one_hour_conflict_failure_flag = get_one_hour_conflict_failure_flag(meta_data)
 
     # full_task_ID_list = list(task_templates.keys())
-    df = pd.DataFrame(columns=["uuid", "reason", "component", "reasoning_trace"])
+    # df = pd.DataFrame(columns=["uuid", "reason", "component", "reasoning_trace"])
+    results = [] #用列表存储所有结果
 
     for idx, row in meta_data.iterrows():
         print(f"processing: {idx}")
@@ -95,61 +96,34 @@ def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
         # time_period = timestamp2timeperiod(timestamp, timezone)
         # task_index = random.choice(full_task_ID_list)
 
-        # if one_hour_conflict_failure_flag[timestamp]:
-        #     num, ans = get_multi_response_dict(row, meta_data)
-        #     scoring_points = ""
-        #     for i in range(num):
-        #         scoring_points_template = task_templates[task_index]['scoring_points'].copy()
-                
-        #         scoring_points_filled = [points.format(
-        #             idx = f'{i+1}-th',
-        #             uuid = ans['uuid'][i],
-        #             description = ans['Anomaly Description'][i],
-        #         ) for points in scoring_points_template]
-        #         scoring_points += "\n".join(scoring_points_filled)
-        #         scoring_points += "\n"
-        #     print(f"The {idx}-th is a multi-response task, containing {num} root cause.")
-        # else:
-        #     num = 1
-        #     scoring_points = ""
-        #     for point in task_templates[task_index]['scoring_points']:
-        #         scoring_points += point.format(
-        #             idx='only',
-        #             time_period=time_period,
-        #             uuid = uuid,
-        #             description = description
-        #         )
-        #         scoring_points += "\n"
-
         #构造输入输出规范
-        input_specification = "```known\n"
-        for spec in task_templates['input']:
-            input_specification += f"- "
-            input_specification += spec.format(
-                anomaly_description=description,
-                uuid=uuid
-            )
-            input_specification += "\n"
-        if extra_spec:
-            input_specification += f"- {extra_spec}\n"
-        input_specification = input_specification.strip() + "\n```"
+        # input_specification = "```known\n"
+        # for spec in task_templates['input']:
+        #     input_specification += f"- "
+        #     input_specification += spec.format(
+        #         anomaly_description=description,
+        #         uuid=uuid
+        #     )
+        #     input_specification += "\n"
+        # if extra_spec:
+        #     input_specification += f"- {extra_spec}\n"
+        # input_specification = input_specification.strip() + "\n```"
 
-        output_specification = "```query\n"
-        for spec in task_templates['output']:
-            output_specification += f"- "
-            output_specification += spec.format(
-                uuid=uuid,
-                reason="**UNKNOWN**",
-                component="**UNKNOWN**",
-                reasoning_trace="**UNKNOWN**",
-            )
-            output_specification += "\n"
-        output_specification = output_specification.strip() + "\n```"
+        # output_specification = "```query\n"
+        # for spec in task_templates['output']:
+        #     output_specification += f"- "
+        #     output_specification += spec.format(
+        #         uuid=uuid,
+        #         reason="**UNKNOWN**",
+        #         component="**UNKNOWN**",
+        #         reasoning_trace="**UNKNOWN**",
+        #     )
+        #     output_specification += "\n"
+        # output_specification = output_specification.strip() + "\n```"
 
         prompt = [
                 {'role': 'system', 'content': system},
-                {'role': 'user', 'content': user.format(input_specification=input_specification, 
-                                                        output_specification=output_specification)},
+                {'role': 'user', 'content': f"Anomaly Description: {description}\nuuid: {uuid}"},
             ]
         
         # print(scoring_points)
@@ -168,17 +142,30 @@ def query_generate(gt_path, spec_path, extra_spec, query_path, timezone):
             #     print(e)
             #     continue
         
-        new_df = pd.DataFrame([{
-            "uuid": parsed_instruction['uuid'],
-            "reason": parsed_instruction['reason'],
-            "component": parsed_instruction['component'],
-            "reasoning_trace": parsed_instruction['reasoning_trace']
-        }])
-        df = pd.concat([df, new_df], 
-                       ignore_index=True)
+        # new_df = pd.DataFrame([{
+        #     "uuid": parsed_instruction['uuid'],
+        #     "reason": parsed_instruction['reason'],
+        #     "component": parsed_instruction['component'],
+        #     "reasoning_trace": parsed_instruction['reasoning_trace']
+        # }])
+        # df = pd.concat([df, new_df], 
+        #                ignore_index=True)
         
-        df.to_csv(query_path, index=False)
-        print(f"genereated: {uuid}")
+        # df.to_csv(query_path, index=False)
+
+        result = {
+                    "uuid": parsed_instruction['uuid'],
+                    "reason": parsed_instruction['reason'],
+                    "component": parsed_instruction['component'],
+                    "reasoning_trace": parsed_instruction['reasoning_trace']
+        }
+
+        results.append(result)
+
+        with open(query_path, 'w', encoding='utf-8') as f:
+                json.dump(results, f, ensure_ascii=False, indent=2)
+        
+        print(f"generated: {uuid}")
 
 template = """: {{
         "uuid": {uuid},
@@ -234,7 +221,7 @@ if __name__ == '__main__':
             'dataset/Market/cloudbed-2/query.csv',
             'dataset/Bank/query.csv',
             'dataset/Telecom/query.csv',
-            'dataset/phaseone/query.csv',
+            'dataset/phaseone/query.json',
         ]
         timezone = pytz.timezone('Asia/Shanghai')
 

@@ -1,4 +1,4 @@
-rules = """## RULES OF FAILURE DIAGNOSIS:
+rules = """## RULES OF ROOT CAUSE ANALYSIS:
 
 What you SHOULD do:
 
