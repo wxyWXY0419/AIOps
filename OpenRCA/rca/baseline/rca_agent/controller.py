@@ -105,10 +105,9 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
                 prompt.append({'role': 'user', 'content': "Please provide your analysis in requested JSON format."})
                 continue
             response = json.loads(response_raw)
-            step = response['step']
             instruction = response['instruction']
             observation = response['observation']
-            logger.info('-'*80 + '\n' + f"### Step[{step+1}]\naction: {action}\nobservation: {observation}" + '\n' + '-'*80)
+            logger.info('-'*80 + '\n' + f"### Step[{step+1}]\ninstruction: {instruction}\nobservation: {observation}" + '\n' + '-'*80)
 
             if completed == "True":
                 kernel.reset()
@@ -128,7 +127,8 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
             if not status:
                 logger.warn(f'Self-Correction failed.')
                 observation = "The Executor failed to execute the instruction. Please provide a new instruction."
-            observation = f"{result}"
+            else:
+                observation = f"{result}"
             history = new_history
             trajectory.append({'code': f"# In[{step+1}]:\n\n{code}", 'result': f"Out[{step+1}]:\n```\n{result}```"})
             logger.info('-'*80 + '\n' + f"Step[{step+1}]\n### Observation:\n{result}" + '\n' + '-'*80)

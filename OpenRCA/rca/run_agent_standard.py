@@ -29,34 +29,22 @@ def main(args, dataset):
     elif dataset == "phaseone":
         import rca.baseline.rca_agent.prompt.basic_prompt_PhaseOne as bp
 
-    inst_file = f"dataset/{dataset}/query.csv"
-    gt_file = f"dataset/{dataset}/input.json"
+    inst_file = f"dataset/{dataset}/input.json"
+    # gt_file = f"dataset/{dataset}/input.json"
     eval_file = f"test/result/{dataset}/agent-{args.tag}-{configs['MODEL'].split('/')[-1]}.csv"
     obs_path = f"test/monitor/{dataset}/agent-{args.tag}-{configs['MODEL'].split('/')[-1]}"
-    # unique_obs_path = f"{obs_path}/{uuid}"
 
-    instruct_data = pd.read_csv(inst_file)
-    
-    # gt_data = pd.read_csv(gt_file)
-    with open(gt_file, "r", encoding="utf-8") as f:
+    # instruct_data = pd.read_csv(inst_file)
+    with open(inst_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-    gt_data = pd.DataFrame(data)
+    instruct_data = pd.DataFrame(data)
 
-    if not os.path.exists(inst_file) or not os.path.exists(gt_file):
+    # gt_data = pd.read_csv(gt_file)
+
+    #if not os.path.exists(inst_file) or not os.path.exists(gt_file):
+    if not os.path.exists(inst_file):
         raise FileNotFoundError(f"Please download the dataset first.")
 
-    # if not os.path.exists(f"{unique_obs_path}/history"):
-    #     os.makedirs(f"{unique_obs_path}/history")
-    # if not os.path.exists(f"{unique_obs_path}/trajectory"):
-    #     os.makedirs(f"{unique_obs_path}/trajectory")
-    # if not os.path.exists(f"{unique_obs_path}/prompt"):
-    #     os.makedirs(f"{unique_obs_path}/prompt")
-    # if not os.path.exists(eval_file):
-    #     if not os.path.exists(f"test/result/{dataset}"):
-    #         os.makedirs(f"test/result/{dataset}")
-    #     eval_df = pd.DataFrame(columns=["uuid", "reason", "component", "reasoning_trace"])
-    # else:
-    #     eval_df = pd.read_csv(eval_file)
 
     # scores = {
     #     "total": 0,
@@ -82,11 +70,9 @@ def main(args, dataset):
         if idx > args.end_idx:
             break
         
+        description = row['Anomaly Description']
         uuid = row['uuid']
-        reason = row["reason"]
-        component = row["component"]
-        reasoning_trace = row["reasoning_trace"]
-
+        
         unique_obs_path = f"{obs_path}/{uuid}"
 
         if not os.path.exists(f"{unique_obs_path}/history"):
@@ -102,18 +88,7 @@ def main(args, dataset):
         else:
             eval_df = pd.read_csv(eval_file)
 
-        # task_id = int(task_index.split('_')[1])
-
-        # if task_id <= 3:
-        #     catalog = "easy"
-        # elif task_id <= 6:
-        #     catalog = "middle"
-        # elif task_id <= 7:
-        #     catalog = "hard"
-
         for i in range(args.sample_num):
-            # uuid = uid + f"_#{idx}-{i}"
-
             nb = nbf.new_notebook()
             nbfile = f"{unique_obs_path}/trajectory/{uuid}.ipynb"
             promptfile = f"{unique_obs_path}/prompt/{uuid}.json"
@@ -126,7 +101,7 @@ def main(args, dataset):
                 signal.alarm(args.timeout)
 
                 agent = RCA_Agent(ap, bp)
-                prediction, trajectory, prompt = agent.run(instruction, logger, 
+                prediction, trajectory, prompt = agent.run(description, logger, 
                                                        max_step=args.controller_max_step, 
                                                        max_turn=args.controller_max_turn)
                 
@@ -149,7 +124,7 @@ def main(args, dataset):
                                             "reason": reason,
                                             "component": component, 
                                             "prediction": prediction,
-                                            "groundtruth": '\n'.join([f'{col}: {gt_data.iloc[idx][col]}' for col in gt_data.columns if col != 'description']),
+                                            #"groundtruth": '\n'.join([f'{col}: {gt_data.iloc[idx][col]}' for col in gt_data.columns if col != 'description']),
                                             # "passed": "N/A",
                                             # "failed": "N/A", 
                                             # "score": "N/A"
