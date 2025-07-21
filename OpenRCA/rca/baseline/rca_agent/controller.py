@@ -27,7 +27,8 @@ Let's begin."""
 format = """{
     "step": (start from 1, increment by 1 in each step, eg., 1, 2, 3),
     "instruction": (Your instruction for the Executor to perform via code execution in the next step. Do not involve complex multi-step instruction. Keep your instruction atomic, with clear request of 'what to do' and 'how to do'. Respond a summary by yourself if you believe the issue is resolved. e.g., "LoadMetrics(checkoutservice)"),
-    "observation": (the observation of the action, e.g., "disk_read_latency spike")
+    "observation": (the observation of the action, e.g., "disk_read_latency spike"),
+    "completed": (if the issue is resolved, set to "True", otherwise "False")
 }
 (DO NOT contain "```json" and "```" tags. DO contain the JSON object with the brackets "{}" only. Use '\\n' instead of an actual newline character to ensure JSON compatibility when you want to insert a line break within a string.)"""
 
@@ -99,7 +100,7 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
             if "```json" in response_raw:
                 response_raw = re.search(r"```json\n(.*)\n```", response_raw, re.S).group(1).strip()
             logger.debug(f"Raw Response:\n{response_raw}")
-            if '"step":' not in response_raw or '"instruction":' not in response_raw or '"observation":' not in response_raw:
+            if '"step":' not in response_raw or '"instruction":' not in response_raw or '"observation":' not in response_raw or "completed" not in response_raw:
                 logger.warning("Invalid response format. Please provide a valid JSON response.")
                 prompt.append({'role': 'assistant', 'content': response_raw})
                 prompt.append({'role': 'user', 'content': "Please provide your analysis in requested JSON format."})
@@ -107,6 +108,7 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
             response = json.loads(response_raw)
             instruction = response['instruction']
             observation = response['observation']
+            completed = response['completed']
             logger.info('-'*80 + '\n' + f"### Step[{step+1}]\ninstruction: {instruction}\nobservation: {observation}" + '\n' + '-'*80)
 
             if completed == "True":
