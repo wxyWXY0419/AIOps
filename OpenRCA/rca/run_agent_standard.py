@@ -20,6 +20,7 @@ def main(args, dataset):
 
     from rca.baseline.rca_agent.rca_agent import RCA_Agent
     import rca.baseline.rca_agent.prompt.agent_prompt as ap
+    
     if dataset == "Telecom":
         import rca.baseline.rca_agent.prompt.basic_prompt_Telecom as bp
     elif dataset == "Bank":
@@ -30,34 +31,16 @@ def main(args, dataset):
         import rca.baseline.rca_agent.prompt.basic_prompt_PhaseOne as bp
 
     inst_file = f"dataset/{dataset}/input.json"
-    # gt_file = f"dataset/{dataset}/input.json"
     eval_file = f"test/result/{dataset}/agent-{args.tag}-{configs['MODEL'].split('/')[-1]}.csv"
     obs_path = f"test/monitor/{dataset}/agent-{args.tag}-{configs['MODEL'].split('/')[-1]}"
 
-    # instruct_data = pd.read_csv(inst_file)
+    #读取输入数据
     with open(inst_file, "r", encoding="utf-8") as f:
         data = json.load(f)
     instruct_data = pd.DataFrame(data)
 
-    # gt_data = pd.read_csv(gt_file)
-
-    #if not os.path.exists(inst_file) or not os.path.exists(gt_file):
     if not os.path.exists(inst_file):
-        raise FileNotFoundError(f"Please download the dataset first.")
-
-
-    # scores = {
-    #     "total": 0,
-    #     "easy": 0,
-    #     "middle": 0,
-    #     "hard": 0,
-    # }
-    # nums = {
-    #     "total": 0,
-    #     "easy": 0,
-    #     "middle": 0,
-    #     "hard": 0,
-    # }
+        raise FileNotFoundError(f"Failed to access dataset.")
 
     signal.signal(signal.SIGALRM, handler)
     logger.info(f"Using dataset: {dataset}")
@@ -96,7 +79,7 @@ def main(args, dataset):
             logger.remove()
             logger.add(sys.stdout, colorize=True, enqueue=True, level="INFO")
             logger.add(logfile, colorize=True, enqueue=True, level="INFO")
-            logger.debug('\n' + "#"*80 + f"\n{uuid}: {uuid}\n" + "#"*80)
+            logger.debug('\n' + "#"*80 + f"\n{uuid}\n" + "#"*80)
             try: 
                 signal.alarm(args.timeout)
 
@@ -120,53 +103,24 @@ def main(args, dataset):
                     json.dump({"messages": prompt}, f, ensure_ascii=False, indent=4)
                 logger.info(f"Prompt has been saved to {promptfile}")
 
+                #保存大模型的输出
+                reason = prediction.get("reason", "")
+                component = prediction.get("component", "")
+                reasoning_trace = prediction.get("reasoning_trace", [])
                 new_eval_df = pd.DataFrame([{"uuid": uuid,
                                             "reason": reason,
-                                            "component": component, 
-                                            "prediction": prediction,
-                                            #"groundtruth": '\n'.join([f'{col}: {gt_data.iloc[idx][col]}' for col in gt_data.columns if col != 'description']),
-                                            # "passed": "N/A",
-                                            # "failed": "N/A", 
-                                            # "score": "N/A"
-                                        }])
-                eval_df = pd.concat([eval_df, new_eval_df], 
-                                    ignore_index=True)
-                eval_df.to_csv(eval_file, 
-                               index=False)
+                                            "component": component,
+                                            "reasoning_trace": reasoning_trace}])
+                eval_df = pd.concat([eval_df, new_eval_df], ignore_index=True)
+                eval_df.to_csv(eval_file, index=False)
 
-                # passed_criteria, failed_criteria, score = evaluate(prediction, scoring_points)
-                
                 logger.info(f"Prediction: {prediction}")
-                # logger.info(f"Scoring Points: {scoring_points}")
-                # logger.info(f"Passed Criteria: {passed_criteria}")
-                # logger.info(f"Failed Criteria: {failed_criteria}")
-                # logger.info(f"Score: {score}")
-                # best_score = max(best_score, score)
-
-                # eval_df.loc[eval_df.index[-1], "passed"] = '\n'.join(passed_criteria)
-                # eval_df.loc[eval_df.index[-1], "failed"] = '\n'.join(failed_criteria)
-                # eval_df.loc[eval_df.index[-1], "score"] = score
-                eval_df.to_csv(eval_file, 
-                               index=False)
-                
-                # temp_scores = scores.copy()
-                # temp_scores[catalog] += best_score
-                # temp_scores["total"] += best_score
-                # temp_nums = nums.copy()
-                # temp_nums[catalog] += 1
-                # temp_nums["total"] += 1
 
             except TimeoutError:
                 logger.error(f"Loop {i} exceeded the time limit and was skipped")
                 continue
-      
-        # scores = temp_scores
-        # nums = temp_nums
-
 
 if __name__ == "__main__":
-    
-    # uid = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, default="Market/cloudbed-1")

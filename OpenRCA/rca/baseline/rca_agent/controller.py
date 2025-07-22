@@ -25,29 +25,13 @@ Solve the issue step-by-step. In each step, your response should follow the JSON
 Let's begin."""
 
 format = """{
-    "step": (start from 1, increment by 1 in each step, eg., 1, 2, 3),
-    "instruction": (Your instruction for the Executor to perform via code execution in the next step. Do not involve complex multi-step instruction. Keep your instruction atomic, with clear request of 'what to do' and 'how to do'. Respond a summary by yourself if you believe the issue is resolved. e.g., "LoadMetrics(checkoutservice)"),
     "observation": (the observation of the action, e.g., "disk_read_latency spike"),
-    "completed": (if the issue is resolved, set to "True", otherwise "False")
+    "analysis": (Your analysis of the code execution result from Executor in the last step, with detailed reasoning of 'what have been done' and 'what can be derived'. Respond 'None' if it is the first step.),
+    "completed": (if the issue is resolved, set to "True", otherwise "False"),
+    "instruction": (Your instruction for the Executor to perform via code execution in the next step. Do not involve complex multi-step instruction. Keep your instruction atomic, with clear request of 'what to do' and 'how to do'. Respond a summary by yourself if you believe the issue is resolved. e.g., "LoadMetrics(checkoutservice)") 
 }
 (DO NOT contain "```json" and "```" tags. DO contain the JSON object with the brackets "{}" only. Use '\\n' instead of an actual newline character to ensure JSON compatibility when you want to insert a line break within a string.)"""
 
-Here is an example of the JSON format:
-example = """{
-    "step": 1,
-    "instruction": "LoadMetrics(checkoutservice)",
-    "observation": "disk_read_latency spike"
-}.
-{
-    "step": 2,
-    "instruction": "TraceAnalysis('frontend -> checkoutservice')",
-    "observation": "checkoutservice self-loop spans"
-},
-{
-    "step": 3,
-    "instruction": "LogSearch(checkoutservice)",
-    "observation": "IOError in 3 logs"
-}"""
 summary = """Now, you have decided to finish your reasoning process. You should now provide the final answer to the issue. The candidates of possible root cause components and reasons are provided to you. The root cause components and reasons must be selected from the provided candidates.
 
 {cand}
@@ -62,10 +46,13 @@ Please first review your previous reasoning process to infer an exact answer of 
         "uuid" :("The uuid provided in the known information."),
         "reason": (The final reason of the anomaly, e.g.,"disk IO overload"),
         "component": (The component that cause the anomaly, e.g.,"checkoutservice"),
-        "reasoning_trace": (the copy of your previous reasoning process, but rename the field "instruction" to "action" in each step, e.g., [{"step": 1, "action": "LoadMetrics(checkoutservice)", "observation": "disk_read_latency spike"}, {"step": 2, "action": "TraceAnalysis('checkoutservice')", "observation": "high latency in database operations"}]),
+        "reasoning_trace": [
+            {{"step": 1, "action": "LoadMetrics(checkoutservice)", "observation": "disk_read_latency spike"}},
+            {{"step": 2, "action": "TraceAnalysis('frontend -> checkoutservice')", "observation": "high latency in database operations"}},
+            {{"step": 3, "action": "LogSearch(checkoutservice)", "observation": "IOError in database connection"}}
+        ],
     }}
 }}
-```
 (Please use "```json" and "```" tags to wrap the JSON object. You only need to provide the elements asked by the issue, and ommited the other fields in the JSON.)
 Note that all the root cause components and reasons must be selected from the provided candidates. Do not reply 'unknown' or 'null' or 'not found' in the JSON. Do not be too conservative in selecting the root cause components and reasons. Be decisive to infer a possible answer based on your current observation."""
 
@@ -81,7 +68,7 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
 
     history = []
     trajectory = []
-    observation = "Let's begin."
+    execution_result = "Let's begin."
     status = False
     kernel = InteractiveShellEmbed()
     init_code = "import pandas as pd\n"+ \
@@ -100,16 +87,17 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
             if "```json" in response_raw:
                 response_raw = re.search(r"```json\n(.*)\n```", response_raw, re.S).group(1).strip()
             logger.debug(f"Raw Response:\n{response_raw}")
-            if '"step":' not in response_raw or '"instruction":' not in response_raw or '"observation":' not in response_raw or "completed" not in response_raw:
+            if '"observation":' not in response_raw or '"analysis":' not in response_raw or '"instruction":' not in response_raw or '"completed":' not in response_raw:
                 logger.warning("Invalid response format. Please provide a valid JSON response.")
                 prompt.append({'role': 'assistant', 'content': response_raw})
                 prompt.append({'role': 'user', 'content': "Please provide your analysis in requested JSON format."})
                 continue
             response = json.loads(response_raw)
-            instruction = response['instruction']
             observation = response['observation']
+            analysis = response['analysis']
             completed = response['completed']
-            logger.info('-'*80 + '\n' + f"### Step[{step+1}]\ninstruction: {instruction}\nobservation: {observation}" + '\n' + '-'*80)
+            instruction = response['instruction']
+            logger.info('-'*80 + '\n' + f"### Step[{step+1}]\nobservation: {observation}\nAnalysis: {analysis}\nInstruction: {instruction}" + '\n' + '-'*80)
 
             if completed == "True":
                 kernel.reset()
@@ -128,14 +116,14 @@ def control_loop(objective:str, plan:str, ap, bp, logger, max_step = 15, max_tur
             code, result, status, new_history = execute_act(instruction, bp.schema, history, attempt_actor, kernel, logger)
             if not status:
                 logger.warn(f'Self-Correction failed.')
-                observation = "The Executor failed to execute the instruction. Please provide a new instruction."
+                execution_result = "The Executor failed to execute the instruction. Please provide a new instruction."
             else:
-                observation = f"{result}"
+                execution_result = f"{result}"
             history = new_history
             trajectory.append({'code': f"# In[{step+1}]:\n\n{code}", 'result': f"Out[{step+1}]:\n```\n{result}```"})
-            logger.info('-'*80 + '\n' + f"Step[{step+1}]\n### Observation:\n{result}" + '\n' + '-'*80)
+            logger.info('-'*80 + '\n' + f"Step[{step+1}]\n### execution_result:\n{result}" + '\n' + '-'*80)
             prompt.append({'role': 'assistant', 'content': response_raw})
-            prompt.append({'role': 'user', 'content': observation})
+            prompt.append({'role': 'user', 'content': execution_result})
 
         except Exception as e:
             logger.error(e)
