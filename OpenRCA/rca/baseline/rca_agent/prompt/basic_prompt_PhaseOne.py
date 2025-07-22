@@ -95,6 +95,36 @@ dataset/phaseone/2025-06-06/metric-parquet/
     - level: 日志级别(INFO/WARN/ERROR等)
     - content: 日志具体内容
 
+## 时间说明(IMPORTANT):
+1. 在读取的imput中异常描述(Anomaly Description)中的时间是 UTC 时间
+2. 数据文件名使用 UTC+8 (北京时间)
+3. 时间转换规则：
+   - 例如:异常发生时间 2025-06-05T16:10:02Z (UTC)
+   - 对应的文件时间为 2025-06-06 (UTC+8)
+   - 转换方法:UTC 时间 + 8小时 = 文件名中的时间
+
+4. 数据读取时的时间处理：
+   - 首先根据异常时间确定需要读取哪一天的数据文件
+   - UTC 时间需要 +8 小时才能对应到正确的数据文件
+   - 示例：
+     * 异常时间:2025-06-05T16:10:02Z (UTC)
+     * 对应文件:dataset/phaseone/2025-06-06/... (因为 16:10:02 + 8 = 00:10:02,是第二天了)
+
+## 数据读取建议：
+1. 使用 pytz 进行时区转换：
+   ```python
+   import pytz
+   from datetime import datetime
+   
+   def convert_utc_to_file_date(utc_time_str):
+       # 解析 UTC 时间字符串
+       utc_time = datetime.strptime(utc_time_str.rstrip('Z'), '%Y-%m-%dT%H:%M:%S')
+       # 转换到 UTC+8
+       beijing_tz = pytz.timezone('Asia/Shanghai')
+       beijing_time = pytz.utc.localize(utc_time).astimezone(beijing_tz)
+       # 返回对应的文件日期
+       return beijing_time.strftime('%Y-%m-%d')
+
 ## 补充说明:
 
 1. 所有时间戳相关说明:
