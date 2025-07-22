@@ -111,7 +111,18 @@ dataset/phaseone/2025-06-06/metric-parquet/
      * 对应文件:dataset/phaseone/2025-06-06/... (因为 16:10:02 + 8 = 00:10:02,是第二天了)
 
 ## 数据读取建议：
-1. 使用 pytz 进行时区转换：
+
+1. 文件路径构建示例：
+   ```python
+   # 正确的文件路径构建方式
+   date_str = '2025-06-06'
+   # metric数据路径 - 注意必须包含 metric-parquet 目录
+   metric_file = f'dataset/phaseone/{date_str}/metric-parquet/infra/infra_node/infra_node_node_cpu_usage_rate_{date_str}.parquet'
+   # log数据路径
+   log_file = f'dataset/phaseone/{date_str}/log-parquet/log_filebeat-server_{date_str}_00-00-00.parquet'
+   ```
+
+2. 使用 pytz 进行时区转换：
    ```python
    import pytz
    from datetime import datetime
