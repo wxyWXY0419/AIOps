@@ -98,3 +98,52 @@ kpi_Market = {
 }
 
 kpi_Market_len = sum([len(v) for v in kpi_Market.values()])
+
+kpi_PhaseOne = {
+    # 基础设施层面的指标
+    "infra": {
+        "node": ["infra_node_node_cpu_usage_rate",
+                "infra_node_node_memory_usage",
+                "infra_node_node_network_receive_bytes",
+                "infra_node_node_network_transmit_bytes"],
+        
+        "pod": ["infra_pod_pod_cpu_usage",
+               "infra_pod_pod_memory_usage",
+               "infra_pod_pod_network_receive_bytes",
+               "infra_pod_pod_network_transmit_bytes"],
+               
+        "tidb": ["infra_tidb_block_cache_size",
+                "infra_tidb_block_cache_hit",
+                "infra_tidb_storage_size"]
+    },
+    
+    # APM (Application Performance Monitoring) 指标
+    "apm": {
+        "pod": ["pod_cpu_usage",
+               "pod_memory_usage",
+               "pod_network_receive_bytes",
+               "pod_network_transmit_bytes",
+               "pod_ready"],
+               
+        "service": ["service_request_duration_seconds",
+                   "service_request_errors_total",
+                   "service_requests_total"]
+    },
+    
+    # 其他监控指标
+    "other": ["pd_abnormal_region_count",
+             "pd_cluster_status",
+             "pd_region_health"]
+}
+
+def calculate_phaseone_len(kpi_dict):
+    total = 0
+    for category in kpi_dict.values():
+        if isinstance(category, dict):
+            for subcategory in category.values():
+                total += len(subcategory)
+        else:
+            total += len(category)
+    return total
+
+kpi_PhaseOne_len = calculate_phaseone_len(kpi_PhaseOne) 

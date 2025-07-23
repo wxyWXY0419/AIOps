@@ -73,16 +73,112 @@ def cache_df_dict(dataset_name:str):
         import rca.baseline.rca_agent.prompt.basic_prompt_Market as bp
         cand = bp.cand
         
-    for day_time in os.listdir(f"dataset/{dataset_path}/telemetry/"):
-        if day_time == '.DS_Store':
+    elif dataset_name == "phaseone":
+        from rca.baseline.oracle_kpis import kpi_PhaseOne
+        selected_kpi_dict = kpi_PhaseOne
+        
+        example_df_dict = {
+            "log": [],
+            "metric": [],
+            "trace": [],
+        }
+        dataset_path = "phaseone"
+        
+        import rca.baseline.rca_agent.prompt.basic_prompt_PhaseOne as bp
+        cand = bp.cand
+        
+    for day_time in os.listdir(f"dataset/{dataset_path}/"):
+        if day_time == '.DS_Store' or not os.path.isdir(f"dataset/{dataset_path}/{day_time}"):
                 continue
         if day_time not in df_dict:
             df_dict[day_time] = deepcopy(example_df_dict)
-            
-        for data_type in os.listdir(f"dataset/{dataset_path}/telemetry/{day_time}"):
-            if data_type == '.DS_Store':
-                continue
-            for fname in os.listdir(f"dataset/{dataset_path}/telemetry/{day_time}/{data_type}"):
+        
+        # 处理metric数据
+        metric_path = f"dataset/{dataset_path}/{day_time}/metric-parquet"
+        if os.path.exists(metric_path):
+            for category in ['apm/pod', 'apm/service', 'infra/infra_node', 'infra/infra_pod', 'infra/infra_tidb', 'other']:
+                category_path = os.path.join(metric_path, category)
+                if os.path.exists(category_path):
+                    for fname in os.listdir(category_path):
+                        if fname.endswith('.parquet'):
+                            full_path = os.path.join(category_path, fname)
+                            try:
+                                t0 = time()
+                                cur_df = pd.read_parquet(full_path)
+                                t1 = time()
+                                logger.debug(f"{round(t1-t0,1)} seconds for reading {fname}")
+                                
+                                cur_df = cur_df.reset_index(drop=True)
+                                if "timestamp" in cur_df.columns:
+                                    col = "timestamp"
+                                elif "startTime" in cur_df.columns:
+                                    col = "startTime"
+                                else:
+                                    logger.error(f"No timestamp column in {fname}")
+                                    continue
+                                    
+                                cur_df[col] = cur_df[col].apply(lambda x: int(x // 1000) if len(str(x)) == 13 else x)
+                                if not cur_df.empty:
+                                    df_dict[day_time]["metric"].append((fname, cur_df))
+                            except Exception as e:
+                                logger.error(f"Error reading {fname}: {str(e)}")
+                                continue
+        
+        # 处理trace数据
+        trace_path = f"dataset/{dataset_path}/{day_time}/trace-parquet"
+        if os.path.exists(trace_path):
+            for fname in os.listdir(trace_path):
+                if fname.endswith('.parquet'):
+                    full_path = os.path.join(trace_path, fname)
+                    try:
+                        t0 = time()
+                        cur_df = pd.read_parquet(full_path)
+                        t1 = time()
+                        logger.debug(f"{round(t1-t0,1)} seconds for reading {fname}")
+                        
+                        cur_df = cur_df.reset_index(drop=True)
+                        if "timestamp" in cur_df.columns:
+                            col = "timestamp"
+                        elif "startTime" in cur_df.columns:
+                            col = "startTime"
+                        else:
+                            logger.error(f"No timestamp column in {fname}")
+                            continue
+                            
+                        cur_df[col] = cur_df[col].apply(lambda x: int(x // 1000) if len(str(x)) == 13 else x)
+                        if not cur_df.empty:
+                            df_dict[day_time]["trace"].append((fname, cur_df))
+                    except Exception as e:
+                        logger.error(f"Error reading {fname}: {str(e)}")
+                        continue
+        
+        # 处理log数据
+        log_path = f"dataset/{dataset_path}/{day_time}/log-parquet"
+        if os.path.exists(log_path):
+            for fname in os.listdir(log_path):
+                if fname.endswith('.parquet'):
+                    full_path = os.path.join(log_path, fname)
+                    try:
+                        t0 = time()
+                        cur_df = pd.read_parquet(full_path)
+                        t1 = time()
+                        logger.debug(f"{round(t1-t0,1)} seconds for reading {fname}")
+                        
+                        cur_df = cur_df.reset_index(drop=True)
+                        if "timestamp" in cur_df.columns:
+                            col = "timestamp"
+                        elif "startTime" in cur_df.columns:
+                            col = "startTime"
+                        else:
+                            logger.error(f"No timestamp column in {fname}")
+                            continue
+                            
+                        cur_df[col] = cur_df[col].apply(lambda x: int(x // 1000) if len(str(x)) == 13 else x)
+                        if not cur_df.empty:
+                            df_dict[day_time]["log"].append((fname, cur_df))
+                    except Exception as e:
+                        logger.error(f"Error reading {fname}: {str(e)}")
+                        continue
                 t0 = time()
                 cur_df = pd.read_csv(f"dataset/{dataset_path}/telemetry/{day_time}/{data_type}/{fname}")
                 t1 = time()
@@ -259,6 +355,8 @@ def main(args):
         import rca.baseline.rca_agent.prompt.basic_prompt_Bank as bp
     elif args.dataset == "Market/cloudbed-1" or args.dataset == "Market/cloudbed-2":
         import rca.baseline.rca_agent.prompt.basic_prompt_Market as bp
+    elif args.dataset == "phaseone":
+        import rca.baseline.rca_agent.prompt.basic_prompt_PhaseOne as bp
 
     inst_file = f"dataset/{args.dataset}/query.csv"
     gt_file = f"dataset/{args.dataset}/record.csv"

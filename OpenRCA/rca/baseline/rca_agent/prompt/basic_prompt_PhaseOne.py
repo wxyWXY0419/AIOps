@@ -1,14 +1,31 @@
 cand = """
 ## POSSIBLE ROOT CAUSE COMPONENTS:
-
-- aiops-k8s-01
-- aiops-k8s-02
-- aiops-k8s-03
-- aiops-k8s-04
-- aiops-k8s-05
-- aiops-k8s-06
-- aiops-k8s-07
-- aiops-k8s-08"""
+- cartservice-0
+- currencyservice-1
+- currencyservice-0
+- frontend-2
+- frontend-0
+- frontend-1
+- recommendationservice-2
+- adservice-0
+- shippingservice-0
+- cartservice-1
+- cartservice-2
+- checkoutservice-0
+- currencyservice-2
+- recommendationservice-1
+- shippingservice-1
+- shippingservice-2
+- checkoutservice-2
+- paymentservice-0
+- paymentservice-2
+- paymentservice-1
+- emailservice-1
+- emailservice-2
+- emailservice-0
+- redis-cart-0
+- adservice-1
+- adservice-2"""
 
 schema = f"""## DATASET STRUCTURE:
 
@@ -20,7 +37,7 @@ schema = f"""## DATASET STRUCTURE:
 
 - The data in `trace-parquet` and `log-parquet` subdirectories is stored in parquet format (e.g., `dataset/phaseone/2025-06-06/log-parquet/log_filebeat-server_2025-06-06_00-00-00.parquet`).
 
-- Within 'metric-parquet' directory, you will find these subdirectories: `apm`, `infra` and `other`.
+- Within 'metric-parquet' directory, you will find these subdirectories: `apm`, `infra` and `other`(e.g., `dataset/phaseone/2025-06-06/metric-parquet/apm`).
 
 - For `metric-parquet` subdirectory, the internal data folder structure is shown below:
 
@@ -90,7 +107,7 @@ dataset/phaseone/2025-06-06/metric-parquet/
     timestamp,service,level,content
     1687035600,checkoutservice,ERROR,"Connection refused to database"
     ```
-    - timestamp: 秒级时间戳
+    - timestamp: 秒级时间戳, **UTC**
     - service: 产生日志的服务名称
     - level: 日志级别(INFO/WARN/ERROR等)
     - content: 日志具体内容
@@ -110,39 +127,12 @@ dataset/phaseone/2025-06-06/metric-parquet/
      * 异常时间:2025-06-05T16:10:02Z (UTC)
      * 对应文件:dataset/phaseone/2025-06-06/... (因为 16:10:02 + 8 = 00:10:02,是第二天了)
 
-## 数据读取建议：
-
-1. 文件路径构建示例：
-   ```python
-   # 正确的文件路径构建方式
-   date_str = '2025-06-06'
-   # metric数据路径 - 注意必须包含 metric-parquet 目录
-   metric_file = f'dataset/phaseone/{date_str}/metric-parquet/infra/infra_node/infra_node_node_cpu_usage_rate_{date_str}.parquet'
-   # log数据路径
-   log_file = f'dataset/phaseone/{date_str}/log-parquet/log_filebeat-server_{date_str}_00-00-00.parquet'
-   ```
-
-2. 使用 pytz 进行时区转换：
-   ```python
-   import pytz
-   from datetime import datetime
-   
-   def convert_utc_to_file_date(utc_time_str):
-       # 解析 UTC 时间字符串
-       utc_time = datetime.strptime(utc_time_str.rstrip('Z'), '%Y-%m-%dT%H:%M:%S')
-       # 转换到 UTC+8
-       beijing_tz = pytz.timezone('Asia/Shanghai')
-       beijing_time = pytz.utc.localize(utc_time).astimezone(beijing_tz)
-       # 返回对应的文件日期
-       return beijing_time.strftime('%Y-%m-%d')
-
 ## 补充说明:
 
 1. 所有时间戳相关说明:
-   - metric数据: 秒级时间戳
-   - trace数据: 毫秒级时间戳
-   - log数据: 秒级时间戳
-   - 时区统一使用UTC+8
+   - metric数据: 秒级时间戳, UTC时间
+   - log数据: 秒级时间戳, UTC时间
+   - trace数据中的startTimeMillis: 毫秒级时间戳
 
 2. 服务命名规则:
    - checkoutservice
@@ -151,7 +141,7 @@ dataset/phaseone/2025-06-06/metric-parquet/
    - 等标准服务名称
 
 3. 数据采样周期:
-   - metrics: 15秒/次
+   - metrics: 60秒/次
    - traces: 实时采集
    - logs: 实时采集
 
@@ -187,3 +177,29 @@ dataset/phaseone/2025-06-06/metric-parquet/
    - All timestamps are in UTC
    - For analysis: UTC+8 = Beijing time
 """
+
+import pytz
+from datetime import datetime
+
+def convert_utc_to_file_date(utc_time_str):
+    # 解析 UTC 时间字符串
+    utc_time = datetime.strptime(utc_time_str.rstrip('Z'), '%Y-%m-%dT%H:%M:%S')
+    # 转换到 UTC+8
+    beijing_tz = pytz.timezone('Asia/Shanghai')
+    beijing_time = pytz.utc.localize(utc_time).astimezone(beijing_tz)
+    # 返回对应的文件日期
+    return beijing_time.strftime('%Y-%m-%d')
+
+# 示例：从异常描述中提取日期
+def extract_date_from_description(description):
+    # 使用正则表达式从描述中提取日期
+    import re
+    match = re.search(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)', description)
+    if match:
+        return convert_utc_to_file_date(match.group(1))
+    return None
+
+# 使用示例
+# description = "The system experienced an anomaly from 2025-06-05T16:10:02Z to 2025-06-05T16:31:02Z. Please infer the possible cause."
+# date_str = extract_date_from_description(description)
+# print(date_str)  # 输出: 2025-06-06
